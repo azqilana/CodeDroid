@@ -36,6 +36,14 @@
 
 .CodeMirror-cursor {
   border-left: 2px solid var(--accent-orange) !important;
+  border-right: none !important;
+  width: 0 !important;
+  position: absolute !important;
+}
+
+/* Pastikan wrapper CodeMirror punya posisi relative agar cursor absolute benar */
+.CodeMirror {
+  position: relative !important;
 }
 
 .CodeMirror-selected {
@@ -105,5 +113,8 @@
   border-radius: 4px !important;
 }
 
-/* Touch selection handles on mobile */
+/* Touch handling on mobile */
 .CodeMirror-code { touch-action: pan-y; }
+.CodeMirror-scroll { touch-action: pan-y; }
+.CodeMirror-lines { touch-action: pan-y; cursor: text; }
+.CodeMirror-line { touch-action: pan-y; }

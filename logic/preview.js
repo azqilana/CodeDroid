@@ -40,7 +40,15 @@ var Preview = (function() {
     var injected = injectBridge(html);
     var frame = document.getElementById('previewFrame');
     if (!frame) return;
-    frame.srcdoc = injected;
+
+    // Reset iframe dulu agar konten lama tidak tertinggal
+    frame.removeAttribute('srcdoc');
+    frame.src = 'about:blank';
+
+    // Tunggu sebentar lalu set srcdoc agar browser siap
+    setTimeout(function() {
+      frame.srcdoc = injected;
+    }, 50);
   }
 
   return {

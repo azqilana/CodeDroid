@@ -49,8 +49,8 @@ async function bootApp() {
   // ── Top bar buttons ───────────────────────
   document.getElementById('btnSidebar').addEventListener('click', openSidebar);
   document.getElementById('btnRun').addEventListener('click', () => {
-    Preview.run();
     switchView('preview');
+    setTimeout(function() { Preview.run(); }, 80);
   });
   document.getElementById('btnSave').addEventListener('click', async () => {
     // Selalu simpan ke IndexedDB dulu agar tidak hilang

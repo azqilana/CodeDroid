@@ -164,6 +164,12 @@ var Editor = (function() {
     cm.setValue(content);
     cm.clearHistory();
 
+    // Paksa CodeMirror recalculate layout agar cursor tidak meleset
+    setTimeout(function() {
+      cm.refresh();
+      cm.focus();
+    }, 30);
+
     var name = tab.filePath ? tab.filePath.split('/').pop() : 'Proyek';
     var fnEl = document.getElementById('currentFileName');
     if (fnEl) fnEl.textContent = name;
