@@ -44,6 +44,9 @@ jobs:
       - name: Install Filesystem Plugin
         run: npm install @capacitor/filesystem
 
+      - name: Install File Picker Plugin
+        run: npm install @capawesome/capacitor-file-picker
+
       - name: Prepare Web Files
         run: |
           mkdir -p www
@@ -73,9 +76,12 @@ jobs:
             "plugins": {
               "SplashScreen": {
                 "launchShowDuration": 1500,
-                "backgroundColor": "#272822",
+                "backgroundColor": "#2d0a38",
                 "splashFullScreen": true,
                 "splashImmersive": true
+              },
+              "Filesystem": {
+                "iosScheme": "ionic"
               }
             }
           }' > capacitor.config.json

@@ -474,8 +474,39 @@
 
   async function openFolderFSA() {
     if (Native.isNative()) {
-      // ── Mode APK: pakai input folder + Capacitor Filesystem ──
-      document.getElementById('folderInput').click();
+      // ── Mode APK: pakai FilePicker native ──
+      showToast('⏳ Membuka file picker...');
+      const result = await Native.pickAndImportFolder();
+
+      if (result.canceled) return;
+      if (!result.ok || !result.files.length) {
+        showToast('❌ Tidak ada file dipilih', 'error');
+        return;
+      }
+
+      await FileSystem.reset();
+      Editor.getTabs().forEach(t => Editor.closeTab(t.id));
+
+      // Buat folder project
+      try { await FileSystem.createFolder('project'); } catch (_) {}
+
+      // Import semua file yang dipilih
+      for (const { virtualPath, name, content } of result.files) {
+        try {
+          await FileSystem.createFile(`project/${name}`);
+          await FileSystem.writeFile(virtualPath, content);
+        } catch (_) {}
+      }
+
+      showToast(`📁 ${result.files.length} file diimpor ✅`);
+      renderSidebar();
+      // Buka file pertama
+      if (result.files[0]) {
+        await Editor.newTab(result.files[0].virtualPath);
+      } else {
+        await Editor.newTab();
+      }
+
     } else if (window.showDirectoryPicker) {
       // ── Mode Browser Chrome: pakai File System Access API ──
       try {
