@@ -147,7 +147,7 @@ jobs:
 
           import android.os.Bundle;
           import com.getcapacitor.BridgeActivity;
-          import com.capawesome.capacitorjs.plugins.filepicker.FilePickerPlugin;
+          import io.capawesome.capacitorjs.plugins.filepicker.FilePickerPlugin;
 
           public class MainActivity extends BridgeActivity {
             @Override
