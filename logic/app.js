@@ -37,11 +37,13 @@ async function bootApp() {
     setTimeout(function() { if (splash.parentNode) splash.remove(); }, 400);
   }
 
-  // Kalau tidak ada file → welcome screen
-  if (FileSystem.isEmpty()) {
-    showWelcome();
-  } else {
-    await enterApp();
+  // Selalu tampilkan welcome screen dulu
+  showWelcome();
+
+  // Kalau ada proyek sebelumnya, tampilkan tombol lanjutkan
+  if (!FileSystem.isEmpty()) {
+    var btnContinue = document.getElementById('wlcContinue');
+    if (btnContinue) btnContinue.classList.remove('hidden');
   }
 
   FileSystem.onChange(renderSidebar);
@@ -284,13 +286,14 @@ async function enterApp() {
   hideWelcome();
   var app = document.getElementById('app');
   if (app) app.style.display = 'flex';
-  if (Editor.getTabs().length === 0) {
-    await Editor.newTab();
-  }
   renderSidebar();
 }
 
 // Welcome button handlers
+document.getElementById('wlcContinue').addEventListener('click', async function() {
+  await enterApp();
+});
+
 document.getElementById('wlcNewProject').addEventListener('click', async function() {
   try {
     if (!supportsFileSystemAccess()) {

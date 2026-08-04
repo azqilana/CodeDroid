@@ -132,7 +132,19 @@ var Editor = (function() {
     tabs.splice(idx, 1);
     if (activeId === id) {
       activeId = null;
-      if (tabs.length === 0) { newTab(); return; }
+      if (tabs.length === 0) {
+        // Tidak ada tab — kosongkan editor dan tampilkan placeholder
+        cm.setValue('');
+        cm.setOption('mode', 'null');
+        var fnEl = document.getElementById('currentFileName');
+        if (fnEl) fnEl.textContent = '';
+        var dot = document.getElementById('dirtyDot');
+        if (dot) dot.classList.add('hidden');
+        var langTabs = document.getElementById('langTabs');
+        if (langTabs) langTabs.style.display = 'none';
+        renderTabBar();
+        return;
+      }
       activeId = tabs[Math.max(0, idx - 1)].id;
       loadTab(activeId);
     }

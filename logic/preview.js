@@ -26,6 +26,8 @@ var Preview = (function() {
     '})();' +
   '<\/script>';
 
+  var _blobUrl = null;
+
   function injectBridge(html) {
     if (/<head>/i.test(html)) return html.replace(/<head>/i, '<head>' + BRIDGE);
     if (/<html>/i.test(html)) return html.replace(/<html>/i, '<html>' + BRIDGE);
@@ -41,14 +43,19 @@ var Preview = (function() {
     var frame = document.getElementById('previewFrame');
     if (!frame) return;
 
-    // Reset iframe dulu agar konten lama tidak tertinggal
-    frame.removeAttribute('srcdoc');
-    frame.src = 'about:blank';
+    // Cabut sandbox sementara agar type=module didukung penuh
+    // Pakai blob URL sebagai src (bukan srcdoc) — satu-satunya cara module jalan di iframe
+    if (_blobUrl) {
+      URL.revokeObjectURL(_blobUrl);
+      _blobUrl = null;
+    }
 
-    // Tunggu sebentar lalu set srcdoc agar browser siap
-    setTimeout(function() {
-      frame.srcdoc = injected;
-    }, 50);
+    var blob = new Blob([injected], { type: 'text/html' });
+    _blobUrl = URL.createObjectURL(blob);
+
+    // Hapus sandbox agar module script bisa jalan, tapi tetap isolasi dengan origin blob
+    frame.removeAttribute('sandbox');
+    frame.src = _blobUrl;
   }
 
   return {

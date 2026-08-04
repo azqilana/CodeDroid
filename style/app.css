@@ -96,6 +96,12 @@ input, textarea, select { font: inherit; color: inherit; }
   background: var(--bg-surface); color: var(--text-main);
   border: 1px solid var(--border2);
 }
+.wlc-btn-continue {
+  background: var(--accent-green, #a6e22e);
+  color: #1a1a1a;
+  border: none;
+  order: -1;
+}
 .wlc-guide {
   background: var(--bg-base);
   border: 1px solid var(--border);
