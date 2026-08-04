@@ -49,7 +49,22 @@ async function bootApp() {
   // ── Top bar buttons ───────────────────────
   document.getElementById('btnSidebar').addEventListener('click', openSidebar);
   document.getElementById('btnRun').addEventListener('click', () => Preview.run());
-  document.getElementById('btnSave').addEventListener('click', () => saveToDevice());
+  document.getElementById('btnSave').addEventListener('click', async () => {
+    // Selalu simpan ke IndexedDB dulu agar tidak hilang
+    await Editor.saveActive();
+    // Jika file sudah terhubung ke HP, langsung tulis ke sana juga
+    if (supportsFileSystemAccess()) {
+      const tab = Editor.getActive();
+      if (tab && _fileHandles[tab.filePath]) {
+        await saveToDevice();
+      } else {
+        // Belum terhubung ke HP, tawarkan lewat saveToDevice (akan minta pilih lokasi)
+        await saveToDevice();
+      }
+    } else {
+      ConsoleLog.system('💾 Tersimpan di browser.');
+    }
+  });
   document.getElementById('btnMore').addEventListener('click', e => {
     e.stopPropagation();
     showCtxMenu('moreMenu', e.clientX, e.clientY);
@@ -607,19 +622,14 @@ function supportsFileSystemAccess() {
 }
 
 async function saveToDevice() {
-  if (!supportsFileSystemAccess()) {
-    ConsoleLog.system('⚠ Browser ini tidak support simpan langsung. Gunakan Download.');
-    downloadActive();
-    return;
-  }
+  if (!supportsFileSystemAccess()) return;
 
   const tab = Editor.getActive();
-  if (!tab) { ConsoleLog.system('⚠ Tidak ada file aktif.'); return; }
+  if (!tab) return;
 
   const filePath = tab.filePath;
-  const content  = tab.singleFile
-    ? (await FileSystem.readFile(filePath) || '')
-    : Editor.buildPreviewHTML();
+  // Ambil konten langsung dari CodeMirror (yang paling fresh)
+  const content  = Editor.getCM() ? Editor.getCM().getValue() : (await FileSystem.readFile(filePath) || '');
   const fileName = filePath ? filePath.split('/').pop() : 'index.html';
   const ext      = fileName.split('.').pop().toLowerCase();
 
@@ -635,8 +645,6 @@ async function saveToDevice() {
     var handle = _fileHandles[filePath];
 
     if (!handle) {
-      // Belum ada handle (file dibuat baru di editor, bukan dibuka dari HP)
-      // Tampilkan dialog sekali untuk tentukan lokasi simpan
       handle = await window.showSaveFilePicker({
         suggestedName: fileName,
         types: typeMap[ext] || [{ description: 'Text File', accept: { 'text/plain': ['.' + ext] } }],
@@ -644,7 +652,6 @@ async function saveToDevice() {
       _fileHandles[filePath] = handle;
     }
 
-    // Tulis langsung ke file — tidak buat file baru
     const writable = await handle.createWritable();
     await writable.write(content);
     await writable.close();
@@ -660,16 +667,22 @@ async function saveToDevice() {
 
   } catch (err) {
     if (err.name !== 'AbortError') {
-      ConsoleLog.append('error', 'Gagal simpan: ' + err.message);
+      ConsoleLog.append('error', 'Gagal simpan ke HP: ' + err.message);
     }
+    // Data tetap aman di IndexedDB meski HP gagal
   }
 }
 
-// Ctrl+S / Cmd+S → simpan ke HP
+// Ctrl+S / Cmd+S → simpan ke IndexedDB + HP
 document.addEventListener('keydown', async function(e) {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
-    await saveToDevice();
+    await Editor.saveActive();
+    if (supportsFileSystemAccess()) {
+      await saveToDevice();
+    } else {
+      ConsoleLog.system('💾 Tersimpan di browser.');
+    }
   }
 });
 
