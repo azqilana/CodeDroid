@@ -2,17 +2,17 @@
    Storage – IndexedDB wrapper
    ========================================= */
 
-const Storage = (() => {
-  const DB_NAME = 'codedroid';
-  const DB_VER  = 2;
-  let db = null;
+var Storage = (function() {
+  var DB_NAME = 'codedroid';
+  var DB_VER  = 2;
+  var db = null;
 
   function open() {
-    return new Promise((res, rej) => {
+    return new Promise(function(res, rej) {
       if (db) return res(db);
-      const req = indexedDB.open(DB_NAME, DB_VER);
-      req.onupgradeneeded = e => {
-        const d = e.target.result;
+      var req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = function(e) {
+        var d = e.target.result;
         if (!d.objectStoreNames.contains('files')) {
           d.createObjectStore('files', { keyPath: 'path' });
         }
@@ -20,38 +20,37 @@ const Storage = (() => {
           d.createObjectStore('settings', { keyPath: 'key' });
         }
       };
-      req.onsuccess  = e => { db = e.target.result; res(db); };
-      req.onerror    = e => rej(e.target.error);
+      req.onsuccess = function(e) { db = e.target.result; res(db); };
+      req.onerror   = function(e) { rej(e.target.error); };
     });
   }
 
   function tx(store, mode, fn) {
-    return open().then(d => new Promise((res, rej) => {
-      const t = d.transaction(store, mode);
-      const s = t.objectStore(store);
-      const req = fn(s);
-      req.onsuccess = () => res(req.result);
-      req.onerror   = () => rej(req.error);
-    }));
+    return open().then(function(d) {
+      return new Promise(function(res, rej) {
+        var t   = d.transaction(store, mode);
+        var s   = t.objectStore(store);
+        var req = fn(s);
+        req.onsuccess = function() { res(req.result); };
+        req.onerror   = function() { rej(req.error); };
+      });
+    });
   }
 
   return {
-    // Files
-    saveFile: (path, content) => tx('files','readwrite', s => s.put({ path, content, updated: Date.now() })),
-    loadFile: (path)          => tx('files','readonly',  s => s.get(path)).then(r => r?.content ?? null),
-    deleteFile:(path)         => tx('files','readwrite', s => s.delete(path)),
-    listFiles: ()             => tx('files','readonly',  s => s.getAll()),
+    saveFile:  function(path, content) { return tx('files','readwrite', function(s) { return s.put({ path: path, content: content, updated: Date.now() }); }); },
+    loadFile:  function(path)          { return tx('files','readonly',  function(s) { return s.get(path); }).then(function(r) { return r ? r.content : null; }); },
+    deleteFile:function(path)          { return tx('files','readwrite', function(s) { return s.delete(path); }); },
+    listFiles: function()              { return tx('files','readonly',  function(s) { return s.getAll(); }); },
 
-    clearAllFiles: () => tx('files','readwrite', s => s.clear()),
-    clearFsTree:   () => tx('settings','readwrite', s => s.delete('fs_tree')),
-
-    // Settings
-    setSetting: (key, val) => tx('settings','readwrite', s => s.put({ key, val })),
-    getSetting: (key)      => tx('settings','readonly',  s => s.get(key)).then(r => r?.val ?? null),
-    getAllSettings: ()      => tx('settings','readonly',  s => s.getAll()).then(rows => {
-      const obj = {};
-      rows.forEach(r => obj[r.key] = r.val);
-      return obj;
-    }),
+    setSetting:  function(key, val) { return tx('settings','readwrite', function(s) { return s.put({ key: key, val: val }); }); },
+    getSetting:  function(key)      { return tx('settings','readonly',  function(s) { return s.get(key); }).then(function(r) { return r ? r.val : null; }); },
+    getAllSettings: function() {
+      return tx('settings','readonly', function(s) { return s.getAll(); }).then(function(rows) {
+        var obj = {};
+        rows.forEach(function(r) { obj[r.key] = r.val; });
+        return obj;
+      });
+    },
   };
 })();

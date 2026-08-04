@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>CodeDroid - Mobile Code Editor</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CodeDroid" />
+  <meta name="theme-color" content="#272822" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
   <link rel="stylesheet" href="style/app.css" />
   <link rel="stylesheet" href="style/editor.css" />
   <link rel="stylesheet" href="style/monokai.css" />
@@ -24,7 +31,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/fold/brace-fold.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/fold/xml-fold.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/fold/indent-fold.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/selection/active-line.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/fold/foldgutter.min.css" />
 </head>
 <body>
@@ -32,22 +38,104 @@
 <!-- ===== SPLASH SCREEN ===== -->
 <div id="splash">
   <div class="splash-logo">
-    <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="120" height="120" rx="24" fill="#4a0e5c"/>
-      <!-- < -->
-      <polyline points="28,38 12,55 28,72" stroke="#7c6fcd" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <!-- / -->
-      <line x1="52" y1="75" x2="68" y2="35" stroke="#e02020" stroke-width="7" stroke-linecap="round"/>
-      <!-- > -->
-      <polyline points="92,38 108,55 92,72" stroke="#f0f0f0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+      <rect width="64" height="64" rx="16" fill="#272822"/>
+      <text x="8" y="44" font-size="36" font-family="monospace" fill="#F92672">&lt;</text>
+      <text x="28" y="44" font-size="36" font-family="monospace" fill="#A6E22E">/</text>
+      <text x="42" y="44" font-size="36" font-family="monospace" fill="#66D9EF">&gt;</text>
     </svg>
     <span>CodeDroid</span>
   </div>
   <div class="splash-sub">Mobile Code Editor</div>
 </div>
 
+<!-- ===== WELCOME SCREEN ===== -->
+<div id="welcome" class="hidden">
+  <div class="wlc-inner">
+    <div class="wlc-logo">
+      <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
+        <rect width="64" height="64" rx="14" fill="#272822"/>
+        <text x="6" y="46" font-size="38" font-family="monospace" fill="#F92672">&lt;</text>
+        <text x="26" y="46" font-size="38" font-family="monospace" fill="#A6E22E">/</text>
+        <text x="40" y="46" font-size="38" font-family="monospace" fill="#66D9EF">&gt;</text>
+      </svg>
+      <div>
+        <div class="wlc-title">CodeDroid</div>
+        <div class="wlc-sub">Mobile Code Editor</div>
+      </div>
+    </div>
+
+    <div class="wlc-actions">
+      <button class="wlc-btn wlc-btn-primary" id="wlcNewProject">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        Proyek Baru
+      </button>
+      <button class="wlc-btn wlc-btn-secondary" id="wlcOpenFile">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Buka File
+      </button>
+      <button class="wlc-btn wlc-btn-secondary" id="wlcOpenFolder">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Buka Folder
+      </button>
+    </div>
+
+    <div class="wlc-guide">
+      <div class="wlc-guide-title">📖 Cara Penggunaan</div>
+      <div class="wlc-steps">
+        <div class="wlc-step">
+          <span class="step-num">1</span>
+          <div class="step-text">
+            <b>Proyek Baru</b> — Mulai dari template HTML/CSS/JS kosong siap edit
+          </div>
+        </div>
+        <div class="wlc-step">
+          <span class="step-num">2</span>
+          <div class="step-text">
+            <b>Buka File</b> — Import satu atau beberapa file dari storage HP
+          </div>
+        </div>
+        <div class="wlc-step">
+          <span class="step-num">3</span>
+          <div class="step-text">
+            <b>Buka Folder</b> — Import seluruh folder project, struktur file tetap terjaga
+          </div>
+        </div>
+        <div class="wlc-step">
+          <span class="step-num">4</span>
+          <div class="step-text">
+            <b>Edit &amp; Preview</b> — Tulis kode di tab <b>HTML/CSS/JS</b>, lihat hasil live di tab <b>Preview</b>
+          </div>
+        </div>
+        <div class="wlc-step">
+          <span class="step-num">5</span>
+          <div class="step-text">
+            <b>Console</b> — Lihat log dan error, atau jalankan ekspresi JS langsung
+          </div>
+        </div>
+        <div class="wlc-step">
+          <span class="step-num">6</span>
+          <div class="step-text">
+            <b>Simpan</b> — Ketuk ikon 💾 atau tekan <kbd>Ctrl+S</kbd>, semua tersimpan otomatis di browser
+          </div>
+        </div>
+        <div class="wlc-step">
+          <span class="step-num">7</span>
+          <div class="step-text">
+            <b>Export</b> — Download file lewat menu <b>Files → Export</b>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wlc-footer">
+      Data tersimpan di browser · Bekerja offline setelah install PWA
+    </div>
+  </div>
+</div>
+
 <!-- ===== APP SHELL ===== -->
-<div id="app" class="hidden">
+<div id="app" style="display:none">
 
   <!-- TOP BAR -->
   <header class="topbar">
@@ -187,11 +275,11 @@
     <button class="sidebar-close" id="btnCloseSidebar">✕</button>
   </div>
   <div class="sidebar-actions">
-    <button class="sb-btn" id="btnNewFile">＋ File</button>
-    <button class="sb-btn" id="btnNewFolder">＋ Folder</button>
+    <button class="sb-btn" id="btnNewFile">+ File</button>
+    <button class="sb-btn" id="btnNewFolder">+ Folder</button>
     <button class="sb-btn sb-btn-import" id="btnImportFile">📄 Buka File</button>
-    <button class="sb-btn sb-btn-folder" id="btnOpenFolder">📁 Buka Folder</button>
-    <button class="sb-btn sb-btn-export" id="btnExportFile" style="grid-column:span 2">💾 Export</button>
+    <button class="sb-btn sb-btn-folder" id="btnImportFolder">📁 Buka Folder</button>
+    <button class="sb-btn sb-btn-export" id="btnExportFile">💾 Export</button>
   </div>
   <div class="sidebar-tree" id="sidebarTree"></div>
 </aside>
@@ -264,13 +352,18 @@
 </div>
 
 <!-- hidden file input -->
-<input type="file" id="fileInput" accept=".html,.css,.js,.txt,.json,.md,.xml,.svg" style="display:none" multiple />
+<input type="file" id="fileInput" accept=".html,.htm,.css,.js,.mjs,.txt,.json,.md,.xml,.svg" style="display:none" multiple />
 <input type="file" id="folderInput" webkitdirectory multiple style="display:none" />
 
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
-
-<script src="logic/native.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function() {
+    navigator.serviceWorker.register("/sw.js")
+      .then(function(r) { console.log("SW registered"); })
+      .catch(function(e) { console.log("SW error:", e); });
+  });
+}
+</script>
 <script src="logic/storage.js"></script>
 <script src="logic/files.js"></script>
 <script src="logic/editor.js"></script>

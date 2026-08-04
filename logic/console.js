@@ -2,52 +2,62 @@
    Console – log capture and display
    ========================================= */
 
-const ConsoleLog = (() => {
-  const MAX_LINES = 500;
-  let lines = [];
-  let errorCount = 0;
+var ConsoleLog = (function() {
+  var MAX_LINES = 300;
+  var lines = [];
+  var errorCount = 0;
 
   function fmt(args) {
-    return args.map(a => {
+    return Array.prototype.slice.call(args).map(function(a) {
       if (a === null) return 'null';
       if (a === undefined) return 'undefined';
       if (typeof a === 'string') return a;
-      if (a instanceof Error) return `${a.name}: ${a.message}`;
-      try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+      if (a instanceof Error) return a.name + ': ' + a.message;
+      try { return JSON.stringify(a, null, 2); } catch(e) { return String(a); }
     }).join(' ');
   }
 
-  function append(type, ...args) {
-    const text = fmt(args);
-    lines.push({ type, text });
+  function append(type, args_or_str) {
+    var text;
+    if (typeof args_or_str === 'string') {
+      text = args_or_str;
+    } else {
+      text = fmt(Array.prototype.slice.call(arguments, 1));
+    }
+    lines.push({ type: type, text: text });
     if (lines.length > MAX_LINES) lines.shift();
     if (type === 'error') errorCount++;
-    renderLine({ type, text });
+    renderLine({ type: type, text: text });
     updateCount();
   }
 
   function renderLine(line) {
-    const out = document.getElementById('consoleOutput');
+    var out = document.getElementById('consoleOutput');
     if (!out) return;
-    const div = document.createElement('div');
-    div.className = `log-line log-${line.type}`;
-    const prefix = { log:'', info:'ℹ ', warn:'⚠ ', error:'✖ ', result:'← ', system:'• ' }[line.type] || '';
-    div.innerHTML = `<span class="log-prefix">${prefix}</span>${escHtml(line.text)}`;
+    var div = document.createElement('div');
+    div.className = 'log-line log-' + line.type;
+    var prefixes = { log:'', info:'ℹ ', warn:'⚠ ', error:'✖ ', result:'← ', system:'• ' };
+    var prefix = prefixes[line.type] || '';
+    div.innerHTML = '<span class="log-prefix">' + prefix + '</span>' + escHtml(String(line.text));
     out.appendChild(div);
     out.scrollTop = out.scrollHeight;
   }
 
   function updateCount() {
-    const el = document.getElementById('consoleCount');
+    var el = document.getElementById('consoleCount');
     if (!el) return;
-    if (errorCount > 0) { el.textContent = errorCount + ' err'; el.style.display = ''; }
-    else { el.style.display = 'none'; }
+    if (errorCount > 0) {
+      el.textContent = errorCount + ' err';
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
   }
 
   function clear() {
     lines = [];
     errorCount = 0;
-    const out = document.getElementById('consoleOutput');
+    var out = document.getElementById('consoleOutput');
     if (out) out.innerHTML = '';
     updateCount();
   }
@@ -55,25 +65,31 @@ const ConsoleLog = (() => {
   function system(msg) { append('system', msg); }
 
   function evalInFrame(expr) {
-    const frame = document.getElementById('previewFrame');
+    var frame = document.getElementById('previewFrame');
     if (!frame || !frame.contentWindow) {
-      append('error', 'Preview frame tidak tersedia');
+      append('error', 'Preview frame tidak tersedia. Jalankan preview dulu.');
       return;
     }
     try {
-      const result = frame.contentWindow.eval(expr);
-      append('result', result);
-    } catch (e) {
+      var result = frame.contentWindow.eval(expr);
+      append('result', String(result));
+    } catch(e) {
       append('error', e.message);
     }
   }
 
-  return { append, clear, system, evalInFrame };
+  return {
+    append: append,
+    clear: clear,
+    system: system,
+    evalInFrame: evalInFrame,
+  };
 })();
 
-// ── Listen to messages from iframe ──
-window.addEventListener('message', e => {
+// Listen pesan dari iframe
+window.addEventListener('message', function(e) {
   if (!e.data || e.data.source !== 'codedroid-preview') return;
-  const { type, args } = e.data;
-  ConsoleLog.append(type || 'log', ...(args || []));
+  var type = e.data.type || 'log';
+  var args = e.data.args || [];
+  ConsoleLog.append(type, args.join(' '));
 });
