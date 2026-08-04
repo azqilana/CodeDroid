@@ -48,7 +48,10 @@ async function bootApp() {
 
   // ── Top bar buttons ───────────────────────
   document.getElementById('btnSidebar').addEventListener('click', openSidebar);
-  document.getElementById('btnRun').addEventListener('click', () => Preview.run());
+  document.getElementById('btnRun').addEventListener('click', () => {
+    Preview.run();
+    switchView('preview');
+  });
   document.getElementById('btnSave').addEventListener('click', async () => {
     // Selalu simpan ke IndexedDB dulu agar tidak hilang
     await Editor.saveActive();
@@ -142,9 +145,6 @@ async function bootApp() {
   });
 
   document.getElementById('btnExportFile').addEventListener('click', downloadActive);
-  document.getElementById('btnOpenFromDevice').addEventListener('click', function() {
-    closeSidebar(); openFromDevice();
-  });
   document.getElementById('fileInput').addEventListener('change', handleFileImport);
   document.getElementById('folderInput').addEventListener('change', handleFolderImport);
 
@@ -198,9 +198,6 @@ async function bootApp() {
   });
   document.getElementById('menuDownload').addEventListener('click', () => {
     hideCtxMenu('moreMenu'); downloadActive();
-  });
-  document.getElementById('menuSaveToDevice').addEventListener('click', () => {
-    hideCtxMenu('moreMenu'); saveToDevice();
   });
   document.getElementById('menuImport').addEventListener('click', () => {
     hideCtxMenu('moreMenu');
@@ -659,11 +656,21 @@ async function saveToDevice() {
     var savedName = (await handle.getFile()).name;
     ConsoleLog.system('✅ Tersimpan ke HP: ' + savedName);
 
-    var dot = document.getElementById('dirtyDot');
-    if (dot) { dot.textContent = '📱'; dot.classList.remove('hidden'); }
-    setTimeout(function() {
-      if (dot) { dot.textContent = '●'; dot.classList.add('hidden'); }
-    }, 2000);
+    // Tampilkan toast di topbar
+    var toast = document.getElementById('saveToast');
+    var dot   = document.getElementById('dirtyDot');
+    if (toast) {
+      toast.textContent = '✅ Tersimpan';
+      toast.classList.remove('hidden', 'fading');
+      if (dot) dot.classList.add('hidden');
+      setTimeout(function() {
+        toast.classList.add('fading');
+        setTimeout(function() {
+          toast.classList.add('hidden');
+          toast.classList.remove('fading');
+        }, 500);
+      }, 2000);
+    }
 
   } catch (err) {
     if (err.name !== 'AbortError') {
@@ -1001,14 +1008,6 @@ function initDividerDrag() {
       edPane.style.height = pct + '%'; edPane.style.flex = 'none'; rtPane.style.flex = '1';
     }
   }
-}
-
-// ── Sembunyikan fitur yang tidak didukung ──
-if (!supportsFileSystemAccess()) {
-  var btnSaveToDevice = document.getElementById('menuSaveToDevice');
-  if (btnSaveToDevice) btnSaveToDevice.style.display = 'none';
-  var btnOpenFromDevice = document.getElementById('btnOpenFromDevice');
-  if (btnOpenFromDevice) btnOpenFromDevice.style.display = 'none';
 }
 
 // ── Start ──
