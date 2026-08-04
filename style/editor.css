@@ -1,0 +1,109 @@
+/* =========================================
+   CodeDroid – Editor Styles (CodeMirror)
+   ========================================= */
+
+#editorContainer {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+}
+
+/* Make CodeMirror fill its container */
+.CodeMirror {
+  height: 100% !important;
+  font-family: var(--font-code) !important;
+  font-size: 14px;
+  line-height: 1.6 !important;
+  background: var(--bg-base) !important;
+  color: var(--text-main) !important;
+  border: none !important;
+  flex: 1;
+}
+
+.CodeMirror-scroll {
+  padding-bottom: 60px;
+}
+
+.CodeMirror-gutters {
+  background: var(--bg-base) !important;
+  border-right: 1px solid var(--border) !important;
+}
+
+.CodeMirror-linenumber {
+  color: var(--text-muted) !important;
+  font-size: 11px;
+  padding: 0 8px 0 6px !important;
+}
+
+.CodeMirror-cursor {
+  border-left: 2px solid var(--accent-orange) !important;
+}
+
+.CodeMirror-selected {
+  background: var(--accent-blue)33 !important;
+}
+
+.CodeMirror-focused .CodeMirror-selected {
+  background: var(--accent-blue)44 !important;
+}
+
+/* Active line highlight */
+.CodeMirror-activeline-background {
+  background: #ffffff08 !important;
+}
+
+/* Matching brackets */
+.CodeMirror-matchingbracket {
+  color: var(--accent-yellow) !important;
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+/* Fold gutter */
+.CodeMirror-foldgutter { width: 18px; }
+.CodeMirror-foldmarker {
+  color: var(--accent-orange) !important;
+  font-size: 11px;
+}
+.CodeMirror-foldgutter-open,
+.CodeMirror-foldgutter-folded {
+  color: var(--text-muted) !important;
+  cursor: pointer;
+}
+.CodeMirror-foldgutter-open:hover,
+.CodeMirror-foldgutter-folded:hover { color: var(--accent-orange) !important; }
+
+/* Scrollbar */
+.CodeMirror-vscrollbar::-webkit-scrollbar { width: 6px; }
+.CodeMirror-vscrollbar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+.CodeMirror-hscrollbar::-webkit-scrollbar { height: 6px; }
+.CodeMirror-hscrollbar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* Autocomplete dropdown */
+.CodeMirror-hints {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: var(--radius) !important;
+  font-family: var(--font-code) !important;
+  font-size: 12px !important;
+  box-shadow: 0 8px 24px #0008 !important;
+  z-index: 200 !important;
+}
+.CodeMirror-hint {
+  color: var(--text-main) !important;
+  padding: 4px 12px !important;
+}
+.CodeMirror-hint-active {
+  background: var(--accent-pink) !important;
+  color: #fff !important;
+}
+
+/* Search bar */
+.CodeMirror-search-field {
+  background: var(--bg-surface) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 4px !important;
+}
+
+/* Touch selection handles on mobile */
+.CodeMirror-code { touch-action: pan-y; }
