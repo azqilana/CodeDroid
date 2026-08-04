@@ -251,32 +251,87 @@ var Editor = (function() {
       var ext = (tab.filePath || '').split('.').pop().toLowerCase();
       if (ext === 'css') return '<html><head><style>' + (tab.singleContent||'') + '</style></head><body></body></html>';
       if (ext === 'js')  return '<html><body><script>' + (tab.singleContent||'') + '<\/script></body></html>';
-      return tab.singleContent || '';
+      return inlineExternalRefs(tab.singleContent || '', tab);
     }
 
     var html = tab.htmlCode || '';
     var css  = tab.cssCode  || '';
     var js   = tab.jsCode   || '';
 
-    // Inject CSS
+    // Inject CSS — ganti link tag atau inject ke head
     if (html.match(/<link[^>]+style\.css[^>]*>/i)) {
       html = html.replace(/<link[^>]+style\.css[^>]*>/i, '<style>' + css + '</style>');
-    } else if (html.indexOf('</head>') !== -1) {
-      html = html.replace('</head>', '<style>' + css + '</style></head>');
+    } else if (/<\/head>/i.test(html)) {
+      html = html.replace(/<\/head>/i, '<style>' + css + '</style></head>');
     } else {
       html = '<style>' + css + '</style>' + html;
     }
 
-    // Inject JS
-    if (html.match(/<script src=["']script\.js["']><\/script>/i)) {
-      html = html.replace(/<script src=["']script\.js["']><\/script>/i, '<script>' + js + '<\/script>');
-    } else if (html.indexOf('</body>') !== -1) {
-      html = html.replace('</body>', '<script>' + js + '<\/script></body>');
+    // Inject JS — ganti script src atau inject sebelum </body>
+    // Hapus type="module" karena blob URL tidak bisa resolve import relatif
+    js = js.replace(/^import\s+.*?from\s+['"][^'"]+['"]\s*;?\s*/gm, '');
+    js = js.replace(/^export\s+default\s+/gm, 'var _default = ');
+    js = js.replace(/^export\s+(const|let|var|function|class)\s+/gm, '$1 ');
+
+    if (html.match(/<script[^>]+src=["']\.\/?script\.js["'][^>]*><\/script>/i)) {
+      html = html.replace(/<script[^>]+src=["']\.\/?script\.js["'][^>]*><\/script>/i, '<script>' + js + '<\/script>');
+    } else if (/<\/body>/i.test(html)) {
+      html = html.replace(/<\/body>/i, '<script>' + js + '<\/script></body>');
     } else {
       html = html + '<script>' + js + '<\/script>';
     }
 
+    // Inline semua script src lainnya dari FileSystem
+    html = inlineExternalRefs(html, tab);
+
     return html;
+  }
+
+  // Inline script src dan link href yang mengarah ke file di FileSystem
+  function inlineExternalRefs(html, tab) {
+    // Inline <script src="..."> — termasuk type=module
+    html = html.replace(/<script([^>]*)src=["']([^'"]+)["']([^>]*)><\/script>/gi, function(match, pre, src, post) {
+      // Skip CDN / URL absolut
+      if (/^https?:\/\//i.test(src)) return match;
+      var fname = src.replace(/^\.\//, '').replace(/^\//, '');
+      var content = getFileContent(fname, tab);
+      if (content === null) return match;
+      // Hapus type=module dan ganti jadi script biasa
+      var attrs = (pre + post).replace(/type=["']module["']/gi, '');
+      return '<script' + attrs + '>' + content + '<\/script>';
+    });
+
+    // Inline <link rel="stylesheet" href="...">
+    html = html.replace(/<link([^>]+)href=["']([^'"]+)["']([^>]*)>/gi, function(match, pre, href, post) {
+      if (/^https?:\/\//i.test(href)) return match;
+      if (!/stylesheet/i.test(pre + post)) return match;
+      var fname = href.replace(/^\.\//, '').replace(/^\//, '');
+      var content = getFileContent(fname, tab);
+      if (content === null) return match;
+      return '<style>' + content + '</style>';
+    });
+
+    return html;
+  }
+
+  // Ambil konten file dari FileSystem (sync via tabs atau storage)
+  function getFileContent(filename, tab) {
+    // Cek tab aktif dulu
+    if (tab) {
+      if (filename === 'script.js' && !tab.singleFile) return tab.jsCode || '';
+      if (filename === 'style.css' && !tab.singleFile) return tab.cssCode || '';
+      if (filename === 'index.html' && !tab.singleFile) return tab.htmlCode || '';
+    }
+    // Cari di tab lain yang terbuka
+    var allTabs = Editor.getTabs ? Editor.getTabs() : [];
+    for (var i = 0; i < allTabs.length; i++) {
+      var t = allTabs[i];
+      if (t.singleFile && t.filePath) {
+        var tname = t.filePath.replace(/^.*\//, '');
+        if (tname === filename) return t.singleContent || '';
+      }
+    }
+    return null;
   }
 
   function insertAtCursor(text) {
