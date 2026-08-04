@@ -139,6 +139,25 @@ jobs:
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i 's|<application|<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />\n    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />\n    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />\n    <application|' $MANIFEST
 
+      - name: Register FilePicker Plugin in MainActivity
+        run: |
+          MAIN="android/app/src/main/java/dev/codedroid/app/MainActivity.java"
+          cat > $MAIN << 'JAVAEOF'
+          package dev.codedroid.app;
+
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+          import com.capawesome.capacitorjs.plugins.filepicker.FilePickerPlugin;
+
+          public class MainActivity extends BridgeActivity {
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+              registerPlugin(FilePickerPlugin.class);
+              super.onCreate(savedInstanceState);
+            }
+          }
+          JAVAEOF
+
       - name: Sync Android
         run: npx cap sync android
 
