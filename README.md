@@ -1,6 +1,6 @@
 # CodeDroid — Mobile Code Editor
 
-![CodeDroid](assets/icon.webp)
+![CodeDroid](assets/icon-kecil.png)
 
 Editor kode HTML, CSS, dan JavaScript yang berjalan langsung di browser HP. Tidak perlu install aplikasi tambahan — cukup buka di Chrome dan langsung coding.
 
