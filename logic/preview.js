@@ -27,8 +27,8 @@ var Preview = (function() {
   '<\/script>';
 
   function injectBridge(html) {
-    if (html.indexOf('<head>') !== -1) return html.replace('<head>', '<head>' + BRIDGE);
-    if (html.indexOf('<html>') !== -1) return html.replace('<html>', '<html>' + BRIDGE);
+    if (/<head>/i.test(html)) return html.replace(/<head>/i, '<head>' + BRIDGE);
+    if (/<html>/i.test(html)) return html.replace(/<html>/i, '<html>' + BRIDGE);
     return BRIDGE + html;
   }
 

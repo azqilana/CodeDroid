@@ -72,7 +72,9 @@ var ConsoleLog = (function() {
     }
     try {
       var result = frame.contentWindow.eval(expr);
-      append('result', String(result));
+      if (result !== undefined) {
+        append('result', String(result));
+      }
     } catch(e) {
       append('error', e.message);
     }
@@ -90,6 +92,14 @@ var ConsoleLog = (function() {
 window.addEventListener('message', function(e) {
   if (!e.data || e.data.source !== 'codedroid-preview') return;
   var type = e.data.type || 'log';
-  var args = e.data.args || [];
-  ConsoleLog.append(type, args.join(' '));
+  var args = e.data.args;
+  var text;
+  if (Array.isArray(args)) {
+    text = args.join(' ');
+  } else if (args !== undefined && args !== null) {
+    text = String(args);
+  } else {
+    text = '';
+  }
+  if (text) ConsoleLog.append(type, text);
 });

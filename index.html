@@ -5,12 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>CodeDroid - Mobile Code Editor</title>
   <link rel="manifest" href="manifest.json" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/webp" href="assets/icon.webp" />
+  <link rel="shortcut icon" href="assets/icon.webp" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
+  <!-- Open Graph / sharing -->
+  <meta property="og:title" content="CodeDroid - Mobile Code Editor" />
+  <meta property="og:description" content="Editor HTML, CSS, dan JavaScript langsung di HP kamu." />
+  <meta property="og:image" content="assets/icon.webp" />
+  <meta property="og:type" content="website" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="CodeDroid" />
   <meta name="theme-color" content="#272822" />
-  <link rel="apple-touch-icon" href="assets/icon-192.png" />
   <link rel="stylesheet" href="style/app.css" />
   <link rel="stylesheet" href="style/editor.css" />
   <link rel="stylesheet" href="style/monokai.css" />
@@ -38,12 +46,7 @@
 <!-- ===== SPLASH SCREEN ===== -->
 <div id="splash">
   <div class="splash-logo">
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-      <rect width="64" height="64" rx="16" fill="#272822"/>
-      <text x="8" y="44" font-size="36" font-family="monospace" fill="#F92672">&lt;</text>
-      <text x="28" y="44" font-size="36" font-family="monospace" fill="#A6E22E">/</text>
-      <text x="42" y="44" font-size="36" font-family="monospace" fill="#66D9EF">&gt;</text>
-    </svg>
+    <img src="assets/icon.webp" alt="CodeDroid" width="64" height="64" style="border-radius:16px" />
     <span>CodeDroid</span>
   </div>
   <div class="splash-sub">Mobile Code Editor</div>
@@ -53,12 +56,7 @@
 <div id="welcome" class="hidden">
   <div class="wlc-inner">
     <div class="wlc-logo">
-      <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
-        <rect width="64" height="64" rx="14" fill="#272822"/>
-        <text x="6" y="46" font-size="38" font-family="monospace" fill="#F92672">&lt;</text>
-        <text x="26" y="46" font-size="38" font-family="monospace" fill="#A6E22E">/</text>
-        <text x="40" y="46" font-size="38" font-family="monospace" fill="#66D9EF">&gt;</text>
-      </svg>
+      <img src="assets/icon.webp" alt="CodeDroid" width="56" height="56" style="border-radius:14px;flex-shrink:0" />
       <div>
         <div class="wlc-title">CodeDroid</div>
         <div class="wlc-sub">Mobile Code Editor</div>
@@ -277,6 +275,7 @@
   <div class="sidebar-actions">
     <button class="sb-btn" id="btnNewFile">+ File</button>
     <button class="sb-btn" id="btnNewFolder">+ Folder</button>
+    <button class="sb-btn sb-btn-import" id="btnOpenFromDevice">📱 Buka dari HP</button>
     <button class="sb-btn sb-btn-import" id="btnImportFile">📄 Buka File</button>
     <button class="sb-btn sb-btn-folder" id="btnImportFolder">📁 Buka Folder</button>
     <button class="sb-btn sb-btn-export" id="btnExportFile">💾 Export</button>
@@ -307,6 +306,7 @@
 <div class="ctx-menu hidden" id="moreMenu">
   <button class="ctx-item" id="menuFormat">🎨 Format Kode</button>
   <button class="ctx-item" id="menuDuplicate">📋 Duplikat Tab</button>
+  <button class="ctx-item" id="menuSaveToDevice">💾 Simpan ke HP</button>
   <button class="ctx-item" id="menuDownload">⬇️ Download File</button>
   <button class="ctx-item" id="menuImport">📂 Import File</button>
   <button class="ctx-item" id="menuSettings">⚙️ Pengaturan</button>
@@ -340,8 +340,8 @@
       <div class="setting-row">
         <label>Tab Size</label>
         <select id="selTabSize" class="setting-select">
-          <option value="2">2 spasi</option>
-          <option value="4" selected>4 spasi</option>
+          <option value="2" selected>2 spasi</option>
+          <option value="4">4 spasi</option>
         </select>
       </div>
     </div>
@@ -358,7 +358,7 @@
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", function() {
-    navigator.serviceWorker.register("/sw.js")
+    navigator.serviceWorker.register("sw.js")
       .then(function(r) { console.log("SW registered"); })
       .catch(function(e) { console.log("SW error:", e); });
   });

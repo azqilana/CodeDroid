@@ -18,6 +18,7 @@ var ASSETS = [
   '/logic/app.js',
   '/assets/icon-192.png',
   '/assets/icon-512.png',
+  '/assets/icon.webp',
   'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/monokai.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js',

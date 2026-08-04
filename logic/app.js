@@ -49,7 +49,7 @@ async function bootApp() {
   // ── Top bar buttons ───────────────────────
   document.getElementById('btnSidebar').addEventListener('click', openSidebar);
   document.getElementById('btnRun').addEventListener('click', () => Preview.run());
-  document.getElementById('btnSave').addEventListener('click', () => Editor.saveActive());
+  document.getElementById('btnSave').addEventListener('click', () => saveToDevice());
   document.getElementById('btnMore').addEventListener('click', e => {
     e.stopPropagation();
     showCtxMenu('moreMenu', e.clientX, e.clientY);
@@ -115,29 +115,36 @@ async function bootApp() {
   });
 
   document.getElementById('btnImportFile').addEventListener('click', function() {
-    document.getElementById('fileInput').click();
+    closeSidebar();
+    if (supportsFileSystemAccess()) { openFromDevice(); }
+    else { document.getElementById('fileInput').click(); }
   });
 
   document.getElementById('btnImportFolder').addEventListener('click', function() {
-    document.getElementById('folderInput').click();
+    closeSidebar();
+    if (supportsFileSystemAccess()) { openFolderFromDevice(); }
+    else { document.getElementById('folderInput').click(); }
   });
 
   document.getElementById('btnExportFile').addEventListener('click', downloadActive);
+  document.getElementById('btnOpenFromDevice').addEventListener('click', function() {
+    closeSidebar(); openFromDevice();
+  });
   document.getElementById('fileInput').addEventListener('change', handleFileImport);
   document.getElementById('folderInput').addEventListener('change', handleFolderImport);
 
   // ── Context menu ─────────────────────────
-  let ctxTarget = null;
-
   document.getElementById('ctxRename').addEventListener('click', async () => {
     hideCtxMenu('ctxMenu');
     if (!_ctxTarget) return;
-    const node = findInTree(_ctxTarget);
+    const target = _ctxTarget;
+    _ctxTarget = null;
+    const node = findInTree(target);
     const newName = await showModal('Rename', node?.name || '');
     if (!newName || newName === node?.name) return;
     try {
-      const newPath = await FileSystem.renameNode(_ctxTarget, newName);
-      Editor.getTabs().forEach(function(t) { if (t.filePath === _ctxTarget) t.filePath = newPath; });
+      const newPath = await FileSystem.renameNode(target, newName);
+      Editor.getTabs().forEach(function(t) { if (t.filePath === target) t.filePath = newPath; });
       Editor.renderTabBar();
     } catch (e) { alert(e.message); }
   });
@@ -145,8 +152,10 @@ async function bootApp() {
   document.getElementById('ctxDelete').addEventListener('click', async () => {
     hideCtxMenu('ctxMenu');
     if (!_ctxTarget) return;
-    if (!confirm('Hapus "' + _ctxTarget + '"?')) return;
-    const deleted = await FileSystem.deleteNode(_ctxTarget);
+    const target = _ctxTarget;
+    _ctxTarget = null;
+    if (!confirm('Hapus "' + target + '"?')) return;
+    const deleted = await FileSystem.deleteNode(target);
     (deleted || []).forEach(p => {
       const tab = Editor.getTabs().find(t => t.filePath === p);
       if (tab) Editor.closeTab(tab.id);
@@ -156,9 +165,11 @@ async function bootApp() {
   document.getElementById('ctxDownload').addEventListener('click', async () => {
     hideCtxMenu('ctxMenu');
     if (!_ctxTarget) return;
-    const content = await FileSystem.readFile(_ctxTarget);
+    const target = _ctxTarget;
+    _ctxTarget = null;
+    const content = await FileSystem.readFile(target);
     if (content === null) return;
-    downloadBlob((_ctxTarget||'').split('/').pop(), content, FileSystem.getMimeForExt(_ctxTarget));
+    downloadBlob((target||'').split('/').pop(), content, FileSystem.getMimeForExt(target));
   });
 
   // ── More menu ─────────────────────────────
@@ -172,6 +183,9 @@ async function bootApp() {
   });
   document.getElementById('menuDownload').addEventListener('click', () => {
     hideCtxMenu('moreMenu'); downloadActive();
+  });
+  document.getElementById('menuSaveToDevice').addEventListener('click', () => {
+    hideCtxMenu('moreMenu'); saveToDevice();
   });
   document.getElementById('menuImport').addEventListener('click', () => {
     hideCtxMenu('moreMenu');
@@ -266,24 +280,75 @@ async function enterApp() {
 
 // Welcome button handlers
 document.getElementById('wlcNewProject').addEventListener('click', async function() {
-  // Buat proyek baru kosong
-  await FileSystem.createFile('index.html');
-  await FileSystem.createFile('style.css');
-  await FileSystem.createFile('script.js');
-  await FileSystem.writeFile('/index.html', DEFAULT_HTML);
-  await FileSystem.writeFile('/style.css',  DEFAULT_CSS);
-  await FileSystem.writeFile('/script.js',  DEFAULT_JS);
-  await enterApp();
-  Preview.run();
-  ConsoleLog.system('🚀 Proyek baru dibuat!');
+  try {
+    if (!supportsFileSystemAccess()) {
+      // Fallback lama jika tidak support
+      if (!findInTree('/index.html')) await FileSystem.createFile('index.html');
+      if (!findInTree('/style.css'))  await FileSystem.createFile('style.css');
+      if (!findInTree('/script.js'))  await FileSystem.createFile('script.js');
+      await FileSystem.writeFile('/index.html', DEFAULT_HTML);
+      await FileSystem.writeFile('/style.css',  DEFAULT_CSS);
+      await FileSystem.writeFile('/script.js',  DEFAULT_JS);
+      await enterApp();
+      await openFileTab('/index.html');
+      Preview.run();
+      ConsoleLog.system('🚀 Proyek baru dibuat!');
+      return;
+    }
+
+    // Minta user pilih folder di HP untuk menyimpan proyek
+    var dirHandle;
+    try {
+      dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    } catch(e) {
+      if (e.name === 'AbortError') return;
+      throw e;
+    }
+
+    // Buat 3 file di folder yang dipilih dan simpan handle-nya
+    var files = [
+      { name: 'index.html', content: DEFAULT_HTML },
+      { name: 'style.css',  content: DEFAULT_CSS  },
+      { name: 'script.js',  content: DEFAULT_JS   },
+    ];
+
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i];
+      var fileHandle = await dirHandle.getFileHandle(f.name, { create: true });
+      var writable   = await fileHandle.createWritable();
+      await writable.write(f.content);
+      await writable.close();
+
+      // Simpan ke FileSystem internal dan simpan handle
+      var absPath = '/' + f.name;
+      if (!findInTree(absPath)) await FileSystem.createFile(f.name);
+      await FileSystem.writeFile(absPath, f.content);
+      _fileHandles[absPath] = fileHandle;
+    }
+
+    await enterApp();
+    await openFileTab('/index.html');
+    Preview.run();
+    ConsoleLog.system('🚀 Proyek baru dibuat di "' + dirHandle.name + '". Ctrl+S untuk simpan langsung ke HP!');
+  } catch(e) {
+    alert('Gagal membuat proyek: ' + e.message);
+  }
 });
 
-document.getElementById('wlcOpenFile').addEventListener('click', function() {
-  document.getElementById('fileInput').click();
+document.getElementById('wlcOpenFile').addEventListener('click', async function() {
+  if (!supportsFileSystemAccess()) {
+    document.getElementById('fileInput').click();
+    return;
+  }
+  await openFromDevice();
 });
 
-document.getElementById('wlcOpenFolder').addEventListener('click', function() {
-  document.getElementById('folderInput').click();
+document.getElementById('wlcOpenFolder').addEventListener('click', async function() {
+  if (!supportsFileSystemAccess()) {
+    document.getElementById('folderInput').click();
+    return;
+  }
+  await openFolderFromDevice();
 });
 
 // ===========================================
@@ -309,6 +374,14 @@ function openSidebar() {
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('open');
+  // Kalau view masih 'files', kembalikan ke editor agar konten tidak tersembunyi
+  var main = document.querySelector('.main-area');
+  if (main && main.classList.contains('view-files')) {
+    document.querySelectorAll('.nav-btn').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.view === 'editor');
+    });
+    main.className = 'main-area view-editor';
+  }
 }
 
 function renderSidebar() {
@@ -337,7 +410,7 @@ function renderNodes(nodes, container) {
       });
       header.addEventListener('contextmenu', function(e) {
         e.preventDefault();
-        __ctxTarget = node.path;
+        _ctxTarget = node.path;
         showCtxMenu('ctxMenu', e.clientX, e.clientY);
       });
       if (node.children) renderNodes(node.children, children);
@@ -358,7 +431,7 @@ function renderNodes(nodes, container) {
       });
       el.addEventListener('contextmenu', function(e) {
         e.preventDefault();
-        __ctxTarget = node.path;
+        _ctxTarget = node.path;
         showCtxMenu('ctxMenu', e.clientX, e.clientY);
       });
       container.appendChild(el);
@@ -366,12 +439,8 @@ function renderNodes(nodes, container) {
   });
 }
 
-// shared ctxTarget (closure workaround)
+// shared ctxTarget untuk context menu
 var _ctxTarget = null;
-// patch ctxTarget references in event listeners above to use _ctxTarget
-document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('ctxRename') && (document.getElementById('ctxRename')._useGlobal = true);
-});
 
 async function openFileTab(filePath) {
   const existing = Editor.getTabs().find(t => t.filePath === filePath);
@@ -423,6 +492,13 @@ async function handleFileImport(e) {
     await enterApp();
     ConsoleLog.system('📄 ' + count + ' file diimpor');
     renderSidebar();
+    // Buka file pertama yang berhasil diimport
+    var firstImported = null;
+    for (var j = 0; j < files.length; j++) {
+      var ext2 = files[j].name.split('.').pop().toLowerCase();
+      if (TEXT_EXTS.includes(ext2)) { firstImported = '/' + files[j].name; break; }
+    }
+    if (firstImported && findInTree(firstImported)) await openFileTab(firstImported);
   }
 }
 
@@ -522,6 +598,237 @@ async function handleFolderImport(e) {
   }
 }
 
+// ── File System Access API ────────────────
+// Simpan file handle per path agar Ctrl+S bisa langsung tulis tanpa dialog
+var _fileHandles = {}; // { filePath: FileSystemFileHandle }
+
+function supportsFileSystemAccess() {
+  return typeof window.showSaveFilePicker === 'function';
+}
+
+async function saveToDevice() {
+  if (!supportsFileSystemAccess()) {
+    ConsoleLog.system('⚠ Browser ini tidak support simpan langsung. Gunakan Download.');
+    downloadActive();
+    return;
+  }
+
+  const tab = Editor.getActive();
+  if (!tab) { ConsoleLog.system('⚠ Tidak ada file aktif.'); return; }
+
+  const filePath = tab.filePath;
+  const content  = tab.singleFile
+    ? (await FileSystem.readFile(filePath) || '')
+    : Editor.buildPreviewHTML();
+  const fileName = filePath ? filePath.split('/').pop() : 'index.html';
+  const ext      = fileName.split('.').pop().toLowerCase();
+
+  const typeMap = {
+    html: [{ description: 'HTML File', accept: { 'text/html': ['.html', '.htm'] } }],
+    css:  [{ description: 'CSS File',  accept: { 'text/css':  ['.css'] } }],
+    js:   [{ description: 'JavaScript File', accept: { 'text/javascript': ['.js'] } }],
+    json: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
+    md:   [{ description: 'Markdown File', accept: { 'text/markdown': ['.md'] } }],
+  };
+
+  try {
+    var handle = _fileHandles[filePath];
+
+    if (!handle) {
+      // Belum ada handle (file dibuat baru di editor, bukan dibuka dari HP)
+      // Tampilkan dialog sekali untuk tentukan lokasi simpan
+      handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: typeMap[ext] || [{ description: 'Text File', accept: { 'text/plain': ['.' + ext] } }],
+      });
+      _fileHandles[filePath] = handle;
+    }
+
+    // Tulis langsung ke file — tidak buat file baru
+    const writable = await handle.createWritable();
+    await writable.write(content);
+    await writable.close();
+
+    var savedName = (await handle.getFile()).name;
+    ConsoleLog.system('✅ Tersimpan ke HP: ' + savedName);
+
+    var dot = document.getElementById('dirtyDot');
+    if (dot) { dot.textContent = '📱'; dot.classList.remove('hidden'); }
+    setTimeout(function() {
+      if (dot) { dot.textContent = '●'; dot.classList.add('hidden'); }
+    }, 2000);
+
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      ConsoleLog.append('error', 'Gagal simpan: ' + err.message);
+    }
+  }
+}
+
+// Ctrl+S / Cmd+S → simpan ke HP
+document.addEventListener('keydown', async function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    await saveToDevice();
+  }
+});
+
+// ── Buka Folder dari HP (File System Access API) ─────────────
+async function openFolderFromDevice() {
+  if (!supportsFileSystemAccess()) {
+    document.getElementById('folderInput').click();
+    return;
+  }
+
+  var dirHandle;
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+  } catch(e) {
+    if (e.name !== 'AbortError') ConsoleLog.append('error', 'Gagal buka folder: ' + e.message);
+    return;
+  }
+
+  var TEXT_EXTS = ['html','htm','css','js','mjs','cjs','json','txt','md','xml','svg',
+                   'ts','tsx','jsx','vue','py','php','rb','sh','bash','yaml','yml',
+                   'toml','ini','env','c','cpp','h','java','kt','swift','go','rs',
+                   'sql','graphql','scss','sass','less'];
+
+  var count   = 0;
+  var skipped = 0;
+  var firstPath = null;
+
+  // Rekursif baca semua file dalam folder
+  async function readDir(handle, parentPath) {
+    for await (var entry of handle.values()) {
+      var entryPath = parentPath + '/' + entry.name;
+
+      if (entry.kind === 'directory') {
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        if (!findInTree(entryPath)) {
+          try { await FileSystem.createFolder(entry.name, parentPath || null); } catch(e) {}
+        }
+        await readDir(entry, entryPath);
+
+      } else if (entry.kind === 'file') {
+        if (entry.name.startsWith('.')) { skipped++; continue; }
+        var ext = entry.name.split('.').pop().toLowerCase();
+        if (!TEXT_EXTS.includes(ext)) { skipped++; continue; }
+
+        try {
+          var file    = await entry.getFile();
+          if (file.size > 512 * 1024) {
+            ConsoleLog.system('⚠ Dilewati (terlalu besar): ' + entryPath);
+            skipped++; continue;
+          }
+          var content = await file.text();
+          if (!findInTree(entryPath)) {
+            var lastSlash = entryPath.lastIndexOf('/');
+            var par = lastSlash > 0 ? entryPath.substring(0, lastSlash) : null;
+            await FileSystem.createFile(entry.name, par || undefined);
+          }
+          await FileSystem.writeFile(entryPath, content);
+
+          // Simpan handle untuk simpan langsung ke HP
+          _fileHandles[entryPath] = entry;
+
+          if (!firstPath) firstPath = entryPath;
+          count++;
+        } catch(err) {
+          ConsoleLog.append('error', 'Gagal baca ' + entry.name + ': ' + err.message);
+        }
+      }
+    }
+  }
+
+  ConsoleLog.system('📁 Membuka folder "' + dirHandle.name + '"...');
+
+  // Buat folder root di FileSystem
+  var rootPath = '/' + dirHandle.name;
+  if (!findInTree(rootPath)) {
+    try { await FileSystem.createFolder(dirHandle.name); } catch(e) {}
+  }
+
+  await readDir(dirHandle, rootPath);
+
+  if (count > 0) {
+    await enterApp();
+    renderSidebar();
+    ConsoleLog.system('✅ "' + dirHandle.name + '" dibuka: ' + count + ' file' + (skipped ? ', ' + skipped + ' dilewati' : '') + '. Ctrl+S simpan langsung ke HP!');
+
+    // Prioritas buka file utama
+    var mainCandidates = [
+      rootPath + '/index.html',
+      rootPath + '/index.js',
+      rootPath + '/main.js',
+      firstPath
+    ];
+    for (var m = 0; m < mainCandidates.length; m++) {
+      if (mainCandidates[m] && findInTree(mainCandidates[m])) {
+        await openFileTab(mainCandidates[m]);
+        break;
+      }
+    }
+  }
+}
+
+// ── Buka File dari HP (File System Access API) ────────────────
+async function openFromDevice() {
+  if (!supportsFileSystemAccess()) return;
+  var handles;
+  try {
+    handles = await window.showOpenFilePicker({
+      multiple: true,
+      types: [
+        {
+          description: 'File Kode',
+          accept: {
+            'text/html':       ['.html', '.htm'],
+            'text/css':        ['.css'],
+            'text/javascript': ['.js', '.mjs'],
+            'application/json':['.json'],
+            'text/plain':      ['.txt', '.md', '.xml', '.svg'],
+          }
+        }
+      ]
+    });
+  } catch(e) {
+    if (e.name !== 'AbortError') ConsoleLog.append('error', 'Gagal buka: ' + e.message);
+    return;
+  }
+
+  var count = 0;
+  var firstPath = null;
+
+  for (var i = 0; i < handles.length; i++) {
+    var handle = handles[i];
+    try {
+      var file    = await handle.getFile();
+      var content = await file.text();
+      var absPath = '/' + file.name;
+
+      // Simpan handle agar Simpan ke HP langsung tulis ke file yang sama
+      _fileHandles[absPath] = handle;
+
+      if (!findInTree(absPath)) {
+        await FileSystem.createFile(file.name);
+      }
+      await FileSystem.writeFile(absPath, content);
+
+      if (!firstPath) firstPath = absPath;
+      count++;
+    } catch(err) {
+      ConsoleLog.append('error', 'Gagal baca ' + handle.name + ': ' + err.message);
+    }
+  }
+
+  if (count > 0) {
+    await enterApp();
+    renderSidebar();
+    ConsoleLog.system('📱 ' + count + ' file dibuka dari HP. Ctrl+S untuk simpan langsung.');
+    if (firstPath) await openFileTab(firstPath);
+  }
+}
+
 function downloadBlob(filename, content, mime) {
   const blob = new Blob([content], { type: mime || 'text/plain' });
   const url  = URL.createObjectURL(blob);
@@ -548,14 +855,94 @@ function formatCode() {
   const cm = Editor.getCM();
   const val = cm.getValue();
   const lang = Editor.currentLang();
+
+  // Coba format sebagai JSON dulu (berlaku untuk lang js/json)
   if (lang === 'js') {
     try {
       const parsed = JSON.parse(val);
       cm.setValue(JSON.stringify(parsed, null, 2));
+      ConsoleLog.system('✅ JSON diformat.');
       return;
     } catch(e) {}
   }
-  ConsoleLog.system('💡 Format JSON: ganti ke tab JS dulu lalu menu Format.');
+
+  // Format HTML: indentasi sederhana
+  if (lang === 'html') {
+    try {
+      var indent = 0;
+      var result = val
+        .replace(/>\s*</g, '>\n<')
+        .split('\n')
+        .map(function(line) {
+          line = line.trim();
+          if (!line) return '';
+          if (/^<\//.test(line)) indent = Math.max(0, indent - 1);
+          var out = '  '.repeat(indent) + line;
+          if (/^<[^\/!][^>]*[^\/]>$/.test(line) && !/^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)/i.test(line)) indent++;
+          return out;
+        })
+        .join('\n');
+      cm.setValue(result);
+      ConsoleLog.system('✅ HTML diformat.');
+      return;
+    } catch(e) {}
+  }
+
+  // Format CSS: indentasi sederhana
+  if (lang === 'css') {
+    try {
+      var result = val
+        .replace(/\s*\{\s*/g, ' {\n  ')
+        .replace(/;\s*/g, ';\n  ')
+        .replace(/\s*\}\s*/g, '\n}\n')
+        .replace(/  \n}/g, '\n}')
+        .trim();
+      cm.setValue(result);
+      ConsoleLog.system('✅ CSS diformat.');
+      return;
+    } catch(e) {}
+  }
+
+  ConsoleLog.system('💡 Format tidak tersedia untuk tipe ini.');
+}
+
+// ── Modal input ───────────────────────────
+function showModal(title, defaultValue) {
+  return new Promise(function(resolve) {
+    var overlay = document.getElementById('modalOverlay');
+    var titleEl = document.getElementById('modalTitle');
+    var input   = document.getElementById('modalInput');
+    var btnOk   = document.getElementById('modalOk');
+    var btnCancel = document.getElementById('modalCancel');
+
+    titleEl.textContent = title;
+    input.value = defaultValue || '';
+    overlay.classList.remove('hidden');
+    setTimeout(function() { input.focus(); input.select(); }, 50);
+
+    function cleanup() {
+      overlay.classList.add('hidden');
+      btnOk.removeEventListener('click', onOk);
+      btnCancel.removeEventListener('click', onCancel);
+      input.removeEventListener('keydown', onKey);
+    }
+    function onOk() {
+      var val = input.value.trim();
+      cleanup();
+      resolve(val || null);
+    }
+    function onCancel() {
+      cleanup();
+      resolve(null);
+    }
+    function onKey(e) {
+      if (e.key === 'Enter') onOk();
+      if (e.key === 'Escape') onCancel();
+    }
+    btnOk.addEventListener('click', onOk);
+    btnCancel.addEventListener('click', onCancel);
+    input.addEventListener('keydown', onKey);
+  });
 }
 
 var _prevFull = false;
@@ -601,6 +988,14 @@ function initDividerDrag() {
       edPane.style.height = pct + '%'; edPane.style.flex = 'none'; rtPane.style.flex = '1';
     }
   }
+}
+
+// ── Sembunyikan fitur yang tidak didukung ──
+if (!supportsFileSystemAccess()) {
+  var btnSaveToDevice = document.getElementById('menuSaveToDevice');
+  if (btnSaveToDevice) btnSaveToDevice.style.display = 'none';
+  var btnOpenFromDevice = document.getElementById('btnOpenFromDevice');
+  if (btnOpenFromDevice) btnOpenFromDevice.style.display = 'none';
 }
 
 // ── Start ──

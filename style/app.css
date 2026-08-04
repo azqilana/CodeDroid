@@ -584,12 +584,12 @@ kbd {
 
 /* Desktop split layout */
 @media (min-width: 769px) {
-  .main-area { flex-direction: row; }
+  .main-area { flex-direction: row; position: relative; }
   .editor-pane { width: 50%; height: 100%; }
   .right-pane  { flex: 1; height: 100%; }
   .pane-divider { width: 6px; height: 100%; cursor: col-resize; }
   .divider-handle { width: 3px; height: 40px; }
-  .lang-tabs { position: absolute; top: 0; left: 0; right: 50%; }
+  .lang-tabs { position: absolute; top: 0; left: 0; right: 50%; z-index: 10; }
   .bottom-nav { display: none; }
   .nav-btn[data-view="files"] ~ * { display: none; }
 }

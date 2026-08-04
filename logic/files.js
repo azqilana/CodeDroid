@@ -88,6 +88,7 @@ var FileSystem = (function() {
 
   async function createFolder(name, parentPath) {
     var path = parentPath ? parentPath + '/' + name : '/' + name;
+    if (getNode(path)) throw new Error('Folder sudah ada: ' + path);
     var node = { name: name, type: 'folder', path: path, children: [], open: true };
     if (parentPath) {
       var parent = getNode(parentPath);
@@ -123,13 +124,42 @@ var FileSystem = (function() {
     var lastSlash = path.lastIndexOf('/');
     var parentPath = lastSlash > 0 ? path.substring(0, lastSlash) : '';
     var newPath = parentPath ? parentPath + '/' + newName : '/' + newName;
-    var oldContent = node.type === 'file' ? await Storage.loadFile(path) : null;
-    node.name = newName;
-    node.path = newPath;
-    if (node.type === 'file' && oldContent !== null) {
-      await Storage.deleteFile(path);
-      await Storage.saveFile(newPath, oldContent);
+
+    if (node.type === 'file') {
+      var oldContent = await Storage.loadFile(path);
+      node.name = newName;
+      node.path = newPath;
+      if (oldContent !== null) {
+        await Storage.deleteFile(path);
+        await Storage.saveFile(newPath, oldContent);
+      }
+    } else {
+      // Folder: update path node dan semua anak-anak secara rekursif
+      async function updateFolderPaths(n, oldBase, newBase) {
+        var oldPath = n.path;
+        n.path = newBase + n.path.substring(oldBase.length);
+        if (n.type === 'file') {
+          var content = await Storage.loadFile(oldPath);
+          if (content !== null) {
+            await Storage.deleteFile(oldPath);
+            await Storage.saveFile(n.path, content);
+          }
+        } else if (n.children) {
+          for (var i = 0; i < n.children.length; i++) {
+            await updateFolderPaths(n.children[i], oldBase, newBase);
+          }
+        }
+      }
+      var oldBase = node.path;
+      node.name = newName;
+      node.path = newPath;
+      if (node.children) {
+        for (var i = 0; i < node.children.length; i++) {
+          await updateFolderPaths(node.children[i], oldBase, newPath);
+        }
+      }
     }
+
     await save();
     notify();
     return newPath;
