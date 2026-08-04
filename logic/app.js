@@ -88,8 +88,26 @@
     catch (e) { alert(e.message); }
   });
 
-  document.getElementById('btnImportFile').addEventListener('click', () => {
-    document.getElementById('fileInput').click();
+  document.getElementById('btnImportFile').addEventListener('click', async () => {
+    if (Native.isNative()) {
+      // APK: pakai SAF file picker
+      const result = await Native.pickFiles();
+      if (result.canceled || !result.ok) return;
+      if (!result.files.length) return;
+      for (const { virtualPath, name, content } of result.files) {
+        try {
+          const exists = FileSystem.getTree().find ? findInTree(virtualPath) : null;
+          if (!exists) await FileSystem.createFile(name);
+          await FileSystem.writeFile(virtualPath, content);
+        } catch (_) {}
+      }
+      renderSidebar();
+      // Buka file pertama
+      await Editor.newTab(result.files[0].virtualPath);
+      showToast(`📄 ${result.files.length} file dibuka`);
+    } else {
+      document.getElementById('fileInput').click();
+    }
   });
 
   document.getElementById('btnOpenFolder').addEventListener('click', openFolderFSA);
@@ -446,9 +464,22 @@
       openFolderFSA();
     });
 
-    document.getElementById('wBtnOpenFile').addEventListener('click', () => {
+    document.getElementById('wBtnOpenFile').addEventListener('click', async () => {
       el.remove();
-      document.getElementById('fileInput').click();
+      if (Native.isNative()) {
+        const result = await Native.pickFiles();
+        if (!result.ok || !result.files.length) { showWelcomeScreen(); return; }
+        for (const { virtualPath, name, content } of result.files) {
+          try {
+            await FileSystem.createFile(name);
+            await FileSystem.writeFile(virtualPath, content);
+          } catch (_) {}
+        }
+        renderSidebar();
+        await Editor.newTab(result.files[0].virtualPath);
+      } else {
+        document.getElementById('fileInput').click();
+      }
     });
   }
 

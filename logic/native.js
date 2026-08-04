@@ -1,7 +1,6 @@
 /* =========================================
    Native – Capacitor Bridge
-   - Di APK: pakai FilePicker + Filesystem
-   - Di browser: pakai FSA / input fallback
+   FolderPicker: plugin custom SAF Android
    ========================================= */
 
 const Native = (() => {
@@ -10,141 +9,113 @@ const Native = (() => {
     return !!(window.Capacitor?.isNativePlatform?.());
   }
 
-  function getFS() {
-    return window.Capacitor?.Plugins?.Filesystem;
+  function getFolderPicker() {
+    return window.Capacitor?.Plugins?.FolderPicker;
   }
 
-  function getPicker() {
-    return window.Capacitor?.Plugins?.FilePicker;
-  }
-
-  // Mapping virtualPath → { nativePath, directory }
+  // Mapping virtualPath → { treeUri, docId }
   const fileMap = new Map();
 
-  function clearMap() {
-    fileMap.clear();
-  }
+  function clearMap() { fileMap.clear(); }
+  function hasNativeFile(vp) { return fileMap.has(vp); }
+  function getFileMap() { return fileMap; }
 
-  function hasNativeFile(virtualPath) {
-    return fileMap.has(virtualPath);
-  }
-
-  // ── Buka folder via FilePicker native ──────────────────────────────
-  // Memilih banyak file sekaligus (simulasi folder)
+  // ── Buka folder via SAF Android ───────────────────────────────────
   async function pickAndImportFolder() {
-    const Picker = getPicker();
-    const FS    = getFS();
-    if (!Picker || !FS) return { ok: false, files: [] };
+    const FP = getFolderPicker();
+    if (!FP) return { ok: false, files: [], error: 'FolderPicker plugin tidak tersedia' };
 
     try {
-      // Pilih banyak file sekaligus
-      const result = await Picker.pickFiles({
-        multiple: true,
-        readData: true   // baca konten langsung sebagai base64
-      });
+      const result = await FP.pickFolder();
+      if (!result?.files?.length) return { ok: false, files: [], canceled: true };
 
-      if (!result?.files?.length) return { ok: false, files: [] };
-
+      fileMap.clear();
       const imported = [];
-      // Tentukan root folder dari nama file pertama (tidak ada path relatif di FilePicker)
-      // Kita simpan flat di Documents/CodeDroid/
-      const baseDir = 'CodeDroid/project';
 
       for (const f of result.files) {
-        const name = f.name || 'file.txt';
-        const nativePath = `${baseDir}/${name}`;
-        const virtualPath = `/project/${name}`;
-
-        // Decode base64 → string
-        let content = '';
-        try {
-          content = f.data ? atob(f.data) : '';
-        } catch (_) { content = ''; }
-
-        // Tulis ke Documents
-        try {
-          await FS.writeFile({
-            path: nativePath,
-            data: content,
-            encoding: 'utf8',
-            directory: 'DOCUMENTS',
-            recursive: true
-          });
-          fileMap.set(virtualPath, { nativePath, directory: 'DOCUMENTS' });
-          imported.push({ virtualPath, name, content });
-        } catch (e) {
-          console.warn('Skip:', name, e.message);
-        }
+        // f.name = path relatif misal "src/index.js"
+        const virtualPath = '/' + f.name;
+        fileMap.set(virtualPath, {
+          treeUri: f.treeUri,
+          docId:   f.docId
+        });
+        imported.push({
+          virtualPath,
+          name:    f.name.split('/').pop(),
+          content: f.data || ''
+        });
       }
 
       return { ok: true, files: imported };
 
     } catch (e) {
-      if (e.message?.includes('cancel') || e.code === 'CANCELED') {
+      if (e.message?.toLowerCase().includes('cancel')) {
         return { ok: false, files: [], canceled: true };
       }
-      console.error('FilePicker error:', e);
       return { ok: false, files: [], error: e.message };
     }
   }
 
-  // ── Import folder dari input[webkitdirectory] (fallback) ───────────
-  async function importFolderNative(files) {
-    const FS = getFS();
-    if (!FS) return false;
-    fileMap.clear();
+  // ── Pilih file satu/beberapa via SAF ─────────────────────────────
+  async function pickFiles() {
+    const FP = getFolderPicker();
+    if (!FP) return { ok: false, files: [], error: 'Plugin tidak tersedia' };
+    try {
+      const result = await FP.pickFiles();
+      if (!result?.files?.length) return { ok: false, files: [], canceled: true };
 
-    const firstRel  = files[0]?.webkitRelativePath || '';
-    const rootFolder = firstRel.split('/')[0] || 'project';
-    const baseDir   = `CodeDroid/${rootFolder}`;
-
-    for (const f of files) {
-      const relPath    = f.webkitRelativePath || f.name;
-      const virtualPath = '/' + relPath;
-      const nativePath  = `${baseDir}/${relPath.split('/').slice(1).join('/')}`;
-
-      try {
-        const content = await f.text();
-        await FS.writeFile({
-          path: nativePath,
-          data: content,
-          encoding: 'utf8',
-          directory: 'DOCUMENTS',
-          recursive: true
+      const imported = [];
+      for (const f of result.files) {
+        const virtualPath = '/' + f.name;
+        // Simpan mapping untuk save balik
+        fileMap.set(virtualPath, {
+          treeUri: f.treeUri || '',
+          docId:   f.docId   || '',
+          uri:     f.uri,
+          singleFile: true
         });
-        fileMap.set(virtualPath, { nativePath, directory: 'DOCUMENTS' });
-      } catch (e) {
-        console.warn('Skip:', relPath, e.message);
+        imported.push({
+          virtualPath,
+          name:    f.name,
+          content: f.data || ''
+        });
       }
+      return { ok: true, files: imported };
+    } catch (e) {
+      if (e.message?.toLowerCase().includes('cancel')) {
+        return { ok: false, files: [], canceled: true };
+      }
+      return { ok: false, files: [], error: e.message };
     }
-    return true;
   }
 
-  // ── Simpan file balik ke device ────────────────────────────────────
+  // ── Simpan file balik ke device via SAF ───────────────────────────
   async function saveNativeFile(virtualPath, content) {
-    const FS    = getFS();
+    const FP    = getFolderPicker();
     const entry = fileMap.get(virtualPath);
-    if (!FS || !entry) return false;
+    if (!FP || !entry) return false;
     try {
-      await FS.writeFile({
-        path: entry.nativePath,
-        data: content,
-        encoding: 'utf8',
-        directory: entry.directory,
-        recursive: true
-      });
+      if (entry.singleFile) {
+        await FP.saveSingleFile({ uri: entry.uri, content });
+      } else {
+        await FP.saveFile({ treeUri: entry.treeUri, docId: entry.docId, content });
+      }
       return true;
     } catch (e) {
-      console.error('saveNativeFile error:', e);
+      console.error('saveNativeFile:', e);
       return false;
     }
   }
 
-  function getFileMap() { return fileMap; }
+  // Fallback import dari input[webkitdirectory]
+  async function importFolderNative(files) {
+    return false; // tidak dipakai di APK
+  }
 
   return {
     isNative,
     pickAndImportFolder,
+    pickFiles,
     importFolderNative,
     saveNativeFile,
     hasNativeFile,
